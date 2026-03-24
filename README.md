@@ -12,7 +12,7 @@ Each trader agent follows this loop on a configurable schedule:
 
 1. **Research** — A sub-agent searches the web (Brave Search), fetches pages, and draws on a persistent memory graph to find opportunities aligned with the trader's strategy
 2. **Decide** — The trader agent reviews its account, holdings, and the research findings, then decides what to buy or sell
-3. **Execute** — Trades are placed via the Accounts MCP server, which updates the SQLite database
+3. **Execute** — Trades are placed via the Accounts MCP server, which updates the SQLite database to track the transactions
 4. **Notify** — A push notification summarising the session is sent via Pushover
 5. **Alternate** — Traders alternate between "trade" mode (seeking new opportunities) and "rebalance" mode (reviewing existing holdings)
 
@@ -22,24 +22,23 @@ Each trader agent follows this loop on a configurable schedule:
 
 ```
 Trading with AI Personas/
-├── .env                    # API keys (not committed)
 ├── .env.example            # Template for required environment variables
 ├── .gitignore
 ├── pyproject.toml          # Project dependencies (uv)
 └── src/
     │
-    ├── app.py              # Gradio dashboard — launch this to view the UI
-    ├── trading_floor.py    # Scheduler — launch this to run the traders
+    ├── app.py              # Gradio UI dashboard for traders portfolio
+    ├── trading_floor.py    # Scheduler
     │
     │── Personas ──────────────────────────────────────────────────────
     ├── reset.py            # Defines each trader's investment strategy (persona prompt)
     ├── templates.py        # System prompts and message templates for all agents
-    ├── traders.py          # Trader class — builds and runs the agent for each persona
+    ├── traders.py          # Trader class builds and runs the agent for each persona
     │
     │── MCP Servers ────────────────────────────────────────────────────
     ├── mcp_params.py       # MCP server configuration for trader and researcher agents
     ├── accounts_server.py  # MCP server: buy/sell shares, get balance/holdings
-    ├── market_server.py    # MCP server: look up share prices (free/end-of-day tier)
+    ├── market_server.py    # MCP server: look up share prices
     ├── push_server.py      # MCP server: send Pushover push notifications
     │
     │── Core ────────────────────────────────────────────────────────────
@@ -50,8 +49,8 @@ Trading with AI Personas/
     ├── tracers.py          # Custom tracing processor — writes agent spans to the DB log
     ├── util.py             # CSS, JS, and Color enum for the UI
     │
-    ├── memory/             # Per-trader persistent memory (libsql .db files, not committed)
-    └── accounts.db         # SQLite database (not committed)
+    ├── memory/             # Per-trader persistent memory
+    └── accounts.db         # SQLite database
 ```
 
 ---
@@ -86,20 +85,7 @@ A principles-based, systematic investor with a focus on diversification and risk
 
 An innovation-focused investor targeting disruptive technology and crypto ETFs. Accepts higher volatility for exceptional return potential. Closely tracks regulatory changes, tech breakthroughs, and market sentiment in the crypto space.
 
----
-
-## How Personas Are Built
-
-Each persona is assembled in layers:
-
-**1. Strategy (`reset.py`)** — Written as a first-person character description, this is stored in the trader's account record in the database and loaded at the start of every trading session. It tells the agent *who it is* and *what it believes*.
-
-**2. Identity (`trading_floor.py`)** — Maps each name to a surname (e.g. `Patience`, `Bold`) and an LLM model. With `USE_MANY_MODELS=true`, each trader can use a different model provider (GPT, DeepSeek, Gemini, Grok), giving each a subtly different reasoning style on top of their strategy.
-
-**3. Behaviour (`templates.py`)** — Contains:
-- `researcher_instructions()` — shapes the sub-agent that searches the web and manages the memory knowledge graph
-- `trader_instructions(name)` — the system prompt for the trading agent, injecting the persona name and available tool capabilities
-- `trade_message()` / `rebalance_message()` — the runtime message sent to the agent each cycle, embedding the current strategy, account state, and datetime
+ Each trader can use a different model provider (GPT, DeepSeek, Gemini, Grok), giving each a subtly different reasoning style on top of their strategy.
 
 ---
 
@@ -158,19 +144,3 @@ In a separate terminal:
 cd src
 python trading_floor.py
 ```
-
----
-
-## Environment Variables
-
-See `.env.example` for the full list. Key variables:
-
-| Variable | Required | Description |
-|---|---|---|
-| `OPENAI_API_KEY` | Yes | Powers all agents (default model: `gpt-4o-mini`) |
-| `POLYGON_API_KEY` | Yes | Market data from Polygon.io |
-| `POLYGON_PLAN` | No | `free` (default), `paid`, or `realtime` |
-| `BRAVE_API_KEY` | Yes | Web search for the researcher agent |
-| `PUSHOVER_USER` / `PUSHOVER_TOKEN` | No | Push notifications after each trading session |
-| `RUN_EVERY_N_MINUTES` | No | Trading cycle frequency (default: `60`) |
-| `USE_MANY_MODELS` | No | `true` to assign a different LLM to each trader |
